@@ -18,9 +18,18 @@ abstract mixin class WindowDelegateMacOS {
 
   /// Called during window resizing. Implementation can override target size
   /// to enforce specific aspect ratio or other constraints.
+  ///
+  /// The size is provided in logical pixels.
   Size? windowWillResizeToSize(Size newSize) {
     return null;
   }
+
+  /// Called when user starts resizing the window.
+  /// This will be called before any calls to [windowWillResizeToSize].
+  void windowWillStartLiveResize() {}
+
+  /// Called when user is done with resizing the window.
+  void windowDidEndLiveResize() {}
 
   /// Called when the window is about to be zoomed. Allows customization of the
   /// zoomed frame.
@@ -103,6 +112,51 @@ extension WindowControllerMacOSExtension on WindowControllerMacOS {
       cw_nswindow_get_collection_behavior(windowHandle),
     );
   }
+
+  /// Updates the window size. This is useful when delegate implements [windowWillResizeToSize]
+  /// and needs to enforce new size.
+  void updateSize() {
+    final frame = getWindowFrame();
+    final delegates = _WindowControllerMacOSPrivate.forController(
+      this,
+    )._delegates;
+    for (final delegate in delegates) {
+      final newSize = delegate.windowWillResizeToSize(frame.size);
+      if (newSize != null) {
+        final newFrame = Rect.fromLTWH(
+          frame.left,
+          frame.top,
+          newSize.width,
+          newSize.height,
+        );
+        setWindowFrame(newFrame);
+        return;
+      }
+    }
+  }
+
+  /// Returns the current window frame in logical coordinates.
+  /// The origin of the coordinate system is top left corner of the primary display.
+  Rect getWindowFrame() {
+    final cwRect = cw_nswindow_get_frame(windowHandle);
+    return Rect.fromLTWH(
+      cwRect.x,
+      cwRect.y,
+      cwRect.w,
+      cwRect.h,
+    );
+  }
+
+  /// Sets the window frame in logical coordinates.
+  /// The origin of the coordinate system is top left corner of the primary display.
+  void setWindowFrame(Rect frame) {
+    final cwRect = ffi.Struct.create<cw_rect_t>();
+    cwRect.x = frame.left;
+    cwRect.y = frame.top;
+    cwRect.w = frame.width;
+    cwRect.h = frame.height;
+    cw_nswindow_set_frame(windowHandle, cwRect);
+  }
 }
 
 enum NSWindowCollectionBehavior {
@@ -156,6 +210,10 @@ class _WindowControllerMacOSPrivate {
   _WindowControllerMacOSPrivate._(this.controller) {
     final initRequest = ffi.Struct.create<cw_delegate_config_t>();
     initRequest.on_window_will_close = _windowWillClose.nativeFunction;
+    initRequest.on_window_will_start_live_resize =
+        _windowWillStartLiveResize.nativeFunction;
+    initRequest.on_window_did_end_live_resize =
+        _windowDidEndLiveResize.nativeFunction;
     initRequest.on_window_will_resize = _windowWillResize.nativeFunction;
     initRequest.on_window_will_enter_fullscreen =
         _windowWillEnterFullScreen.nativeFunction;
@@ -180,6 +238,14 @@ class _WindowControllerMacOSPrivate {
   late final _windowWillResize =
       ffi.NativeCallable<cw_size_t Function(cw_size_t)>.isolateLocal(
         _onWindowWillResize,
+      );
+  late final _windowWillStartLiveResize =
+      ffi.NativeCallable<ffi.Void Function()>.isolateLocal(
+        _onWindowWillStartLiveResize,
+      );
+  late final _windowDidEndLiveResize =
+      ffi.NativeCallable<ffi.Void Function()>.isolateLocal(
+        _onWindowDidEndLiveResize,
       );
   late final _windowWillEnterFullScreen =
       ffi.NativeCallable<ffi.Void Function()>.isolateLocal(
@@ -208,6 +274,8 @@ class _WindowControllerMacOSPrivate {
     }
     _windowWillClose.close();
     _windowWillResize.close();
+    _windowWillStartLiveResize.close();
+    _windowDidEndLiveResize.close();
     _windowWillEnterFullScreen.close();
     _windowDidEnterFullScreen.close();
     _windowWillExitFullScreen.close();
@@ -226,6 +294,18 @@ class _WindowControllerMacOSPrivate {
     cwSize.w = result.width;
     cwSize.h = result.height;
     return cwSize;
+  }
+
+  void _onWindowWillStartLiveResize() {
+    for (final delegate in delegates) {
+      delegate.windowWillStartLiveResize();
+    }
+  }
+
+  void _onWindowDidEndLiveResize() {
+    for (final delegate in delegates) {
+      delegate.windowDidEndLiveResize();
+    }
   }
 
   cw_rect_t _onWindowWillUseStandardFrame(cw_rect_t defaultFrame) {
