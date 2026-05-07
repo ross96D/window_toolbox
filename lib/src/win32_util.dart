@@ -6,9 +6,11 @@ import 'dart:ffi';
 import 'package:ffi/ffi.dart';
 import 'package:win32/win32.dart';
 
+int _fixSign(int v) => v >= 0x8000 ? v - 0x10000 : v;
+
 (int, int) splitLParam(int lParam) {
-  final x = lParam & 0xFFFF;
-  final y = (lParam >> 16) & 0xFFFF;
+  final x = _fixSign(lParam & 0xFFFF);
+  final y = _fixSign((lParam >> 16) & 0xFFFF);
   return (x, y);
 }
 
