@@ -56,6 +56,9 @@ external void cw_window_set_shadow_width(
   int right,
 );
 
+@ffi.Native<ffi.Pointer<ffi.Char> Function()>()
+external ffi.Pointer<ffi.Char> cw_wrl_get_xdg_token();
+
 @ffi.Native<ffi.Void Function(ffi.Pointer<ffi.Void>, cw_delegate_config_t)>()
 external void cw_gtk_window_init_delegate(
   ffi.Pointer<ffi.Void> gtk_window,

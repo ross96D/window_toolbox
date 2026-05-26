@@ -14,6 +14,24 @@ String findMacSdkPath() {
   return (result.stdout as String).trim();
 }
 
+String findClangIncludePath() {
+  final result = Process.runSync('clang', ['-print-resource-dir']);
+  if (result.exitCode != 0) {
+    throw Exception('Error: clang not found.');
+  }
+
+  final resourceDir = (result.stdout as String).trim();
+  if (resourceDir.isEmpty) {
+    throw Exception('Warning: clang -print-resource-dir returned empty.');
+  }
+
+  final includePath = '$resourceDir/include';
+  if (!Directory(includePath).existsSync()) {
+    throw Exception("Clang include path does not exists");
+  }
+  return includePath;
+}
+
 void main() {
   final packageRoot = Platform.script.resolve('../');
 
@@ -32,8 +50,10 @@ void main() {
     return;
   }
 
-  bool filter(Declaration declaration) =>
-      declaration.originalName.toLowerCase().startsWith('cw_');
+  bool filter(Declaration declaration) => declaration.originalName.toLowerCase().startsWith('cw_');
+
+  final clangInclude = findClangIncludePath();
+  final compilerOpts = <String>["-I$clangInclude"];
 
   FfiGenerator(
     output: Output(
@@ -41,7 +61,12 @@ void main() {
       format: true,
       style: NativeExternalBindings(assetId: 'package:window_toolbox/$assetId'),
     ),
-    headers: Headers(entryPoints: [packageRoot.resolve('src/$entryPoint')]),
+    headers: Headers(
+      entryPoints: [
+        packageRoot.resolve('src/$entryPoint'),
+      ],
+      compilerOptions: compilerOpts,
+    ),
     functions: Functions(include: filter),
     structs: Structs(include: filter),
     enums: Enums(include: filter),

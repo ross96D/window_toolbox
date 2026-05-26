@@ -33,3 +33,5 @@ migrate_working_dir/
 .cache
 compile_commands.json
 vmservice.json
+
+.fvm

@@ -2,6 +2,7 @@
 #include <stdio.h>
 
 #include <gtk/gtk.h>
+#include <gtk-layer-shell/gtk-layer-shell.h>
 
 extern void fl_view_set_background_color(GtkWidget *fl_view,
                                          const GdkRGBA *color);
@@ -148,4 +149,13 @@ cw_window_state_t cw_window_get_state(void *gtk_window) {
   g_return_val_if_fail(gdk_window != NULL, 0);
   GdkWindowState state = gdk_window_get_state(gdk_window);
   return (cw_window_state_t)state;
+}
+
+EXPORT char* cw_wrl_get_xdg_token() {
+  GdkDisplay *gdk_display = gdk_display_get_default();
+
+  GdkAppLaunchContext *context = gdk_display_get_app_launch_context(gdk_display);
+  char *resp = g_app_launch_context_get_startup_notify_id(G_APP_LAUNCH_CONTEXT(context), NULL, NULL);
+  g_object_unref(context);
+  return resp;
 }
