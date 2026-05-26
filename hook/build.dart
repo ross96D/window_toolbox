@@ -60,6 +60,7 @@ void main(List<String> args) async {
             '-g',
           ],
           ...(await _pkgConfig('--cflags', 'gtk+-3.0')),
+          ...(await _pkgConfig('--cflags', 'gtk-layer-shell-0')),
         ],
         language: Language.c,
         libraries: [
